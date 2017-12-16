@@ -1,11 +1,13 @@
 # RxMedia
 
+RxMedia is a reactive implementation of standard Android media tools: a library for composing asynchronous audio and video streams by using flowable sequences.
+
 ### Download
 
 Download via Gradle:
 
 ```gradle
-compile 'com.github.featzima:rxmedia:0.1'
+implementation 'com.featzima:rxmedia:0.1.0'
 ```
 
 ### License
