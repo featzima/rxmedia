@@ -1,5 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+apply plugin: 'com.novoda.bintray-release'
 
 android {
     buildToolsVersion '27.0.1'
@@ -20,7 +21,21 @@ android {
     }
 }
 
+publish {
+    userOrg = 'featzima'
+    groupId = 'com.featzima'
+    repoName = 'rxmedia'
+    artifactId = 'rxmedia'
+    publishVersion = '0.1.0'
+    desc = 'Reactive support for Android media tools'
+    website = 'https://github.com/featzima/rxmedia'
+}
+
+tasks.withType(Javadoc).all {
+    enabled = false
+}
+
 dependencies {
-    implementation "io.reactivex.rxjava2:rxjava:2.1.7"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+    compile "io.reactivex.rxjava2:rxjava:2.1.7"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
 }
