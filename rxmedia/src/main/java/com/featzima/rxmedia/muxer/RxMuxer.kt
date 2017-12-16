@@ -7,6 +7,7 @@ import io.reactivex.Flowable
 import io.reactivex.FlowableSubscriber
 import io.reactivex.schedulers.Schedulers
 import org.reactivestreams.Subscription
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 
 class RxMuxer(
@@ -27,7 +28,7 @@ class RxMuxer(
     fun start() {
         Log.d(TAG, "start()")
         this.codecs.forEach { codec ->
-            Flowable.fromPublisher<CodecEvent>(codec.output())
+            Flowable.fromPublisher<CodecEvent<ByteBuffer>>(codec.output())
                     .subscribeOn(Schedulers.io())
                     .subscribe(CodecSubscriber(codec))
         }
@@ -60,7 +61,7 @@ class RxMuxer(
     private var audioTimestamp = 0L
 
     inner class CodecSubscriber(
-            private val codec: IRxCodec) : FlowableSubscriber<CodecEvent> {
+            private val codec: IRxCodec) : FlowableSubscriber<CodecEvent<ByteBuffer>> {
 
         private lateinit var subscription: Subscription
         private var trackIndex: Int = -1
@@ -74,7 +75,7 @@ class RxMuxer(
             this@RxMuxer.stopMuxer()
         }
 
-        override fun onNext(event: CodecEvent) {
+        override fun onNext(event: CodecEvent<ByteBuffer>) {
             when (event) {
                 is FormatCodecEvent -> {
                     synchronized(this@RxMuxer) {
@@ -86,24 +87,8 @@ class RxMuxer(
                     Log.d(TAG, "onNext.startonNext.start($codec, $event, ${event.bufferInfo.presentationTimeUs})")
                     try {
                         synchronized(this@RxMuxer) {
-                            muxer.writeSampleData(this.trackIndex, event.byteBuffer, event.bufferInfo)
+                            muxer.writeSampleData(this.trackIndex, event.data, event.bufferInfo)
                         }
-//                        when (trackIndex) {
-//                            0 -> videoTimestamp = event.bufferInfo.presentationTimeUs
-//                            1 -> audioTimestamp = event.bufferInfo.presentationTimeUs
-//                        }
-//                        if (codecsStopped.get() == 0) {
-//                            if (videoTimestamp > audioTimestamp) {
-//                                subscriptions[1].request(1)
-//                            } else {
-//                                subscriptions[0].request(1)
-//                            }
-//                        } else {
-//                            subscriptions[0].request(1)
-//                            subscriptions[1].request(1)
-//                        }
-//                        Log.d(TAG, "onNext.request($codec, $event)")
-//                        Log.d(TAG, "onNext::request(1, $codec)")
                         this.subscription.request(1)
                     } catch (e: Throwable) {
                         e.printStackTrace()

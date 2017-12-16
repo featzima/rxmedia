@@ -2,12 +2,12 @@ package com.featzima.rxmedia.audio
 
 import android.media.MediaCodec
 import android.media.MediaFormat
-import android.util.Log
 import com.featzima.rxmedia.i.CodecEvent
 import com.featzima.rxmedia.i.DataCodecEvent
 import com.featzima.rxmedia.i.FormatCodecEvent
 import org.reactivestreams.Subscriber
 import org.reactivestreams.Subscription
+import java.nio.ByteBuffer
 
 
 class RxAudioDecoder {
@@ -15,10 +15,10 @@ class RxAudioDecoder {
             TAG = "Audio.Decoder",
             presentationTimeCalculator = { encodedBytes -> 1000000L * (encodedBytes / 2) / 44100 })
 
-    val input: Subscriber<CodecEvent>
-        get() = object : Subscriber<CodecEvent> {
+    val input: Subscriber<CodecEvent<ByteBuffer>>
+        get() = object : Subscriber<CodecEvent<ByteBuffer>> {
             lateinit var s: Subscription
-            override fun onNext(event: CodecEvent) {
+            override fun onNext(event: CodecEvent<ByteBuffer>) {
                 when (event) {
                     is FormatCodecEvent -> {
                         val mime = event.mediaFormat.getString(MediaFormat.KEY_MIME)
@@ -29,7 +29,7 @@ class RxAudioDecoder {
                         rxCodec.input.onSubscribe(s)
                     }
                     is DataCodecEvent -> {
-                        rxCodec.input.onNext(event.byteBuffer)
+                        rxCodec.input.onNext(event.data)
                     }
                 }
             }
@@ -48,7 +48,7 @@ class RxAudioDecoder {
     val output = this.rxCodec
             .output
             .compose(RxMonofier().composer)
-            .filter { it is DataCodecEvent }
-            .map { (it as DataCodecEvent).byteBuffer }
+            .filter { it is DataCodecEvent<ByteBuffer> }
+            .map { (it as DataCodecEvent<ByteBuffer>).data }
             .filter { it.remaining() > 0 }
 }

@@ -4,11 +4,11 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import java.nio.ByteBuffer
 
-sealed class CodecEvent
+sealed class CodecEvent<T>
 
-data class FormatCodecEvent(
-        val mediaFormat: MediaFormat): CodecEvent()
+data class FormatCodecEvent<T>(
+        val mediaFormat: MediaFormat): CodecEvent<T>()
 
-data class DataCodecEvent(
-        val byteBuffer: ByteBuffer,
-        val bufferInfo: MediaCodec.BufferInfo): CodecEvent()
+data class DataCodecEvent<T>(
+        val data: T,
+        val bufferInfo: MediaCodec.BufferInfo): CodecEvent<T>()

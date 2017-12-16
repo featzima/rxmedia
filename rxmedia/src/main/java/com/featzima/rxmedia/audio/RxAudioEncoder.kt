@@ -38,7 +38,7 @@ class RxAudioEncoder(
 
     val input: Subscriber<ByteBuffer> = this.rxCodec.input
 
-    override fun output(): Publisher<CodecEvent> = this.rxCodec.output
+    override fun output(): Publisher<CodecEvent<ByteBuffer>> = this.rxCodec.output
 
     companion object {
         private val TAG = RxAudioEncoder::class.java.simpleName

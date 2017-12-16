@@ -89,7 +89,7 @@ class RxCodec(
             }
         }
 
-    val output = Flowable.create<CodecEvent>({ emitter ->
+    val output = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
             val codec = this@RxCodec.codecSubject.blockingFirst()
             while (!emitter.isCancelled) {
 //                Log.e(TAG, "requested = ${emitter.requested()}")
@@ -106,7 +106,7 @@ class RxCodec(
 //                        Log.e(TAG, "output::presentationTimeUs = ${info.presentationTimeUs}")
                         val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
                         emitter.onNext(DataCodecEvent(
-                                byteBuffer = outputBuffer.exactlyCopy(),
+                                data = outputBuffer.exactlyCopy(),
                                 bufferInfo = info))
                         codec.releaseOutputBuffer(outputBufferIndex, false)
                     }

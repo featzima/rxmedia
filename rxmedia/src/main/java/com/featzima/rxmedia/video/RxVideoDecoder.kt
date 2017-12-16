@@ -1,11 +1,13 @@
 package com.featzima.rxmedia.video
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.util.Log
 import com.featzima.rxmedia.extensions.transferToAsMuchAsPossible
+import com.featzima.rxmedia.extensions.waitForRequested
 import com.featzima.rxmedia.i.CodecEvent
 import com.featzima.rxmedia.i.DataCodecEvent
 import com.featzima.rxmedia.i.FormatCodecEvent
@@ -28,7 +30,7 @@ class RxVideoDecoder {
     private val codecSubject = BehaviorSubject.create<MediaCodec>()
     private val formatSubject = BehaviorSubject.create<MediaFormat>()
 
-    val input: Subscriber<CodecEvent> = object : Subscriber<CodecEvent> {
+    val input: Subscriber<CodecEvent<ByteBuffer>> = object : Subscriber<CodecEvent<ByteBuffer>> {
         lateinit var subscription: Subscription
 
         override fun onSubscribe(s: Subscription) {
@@ -37,15 +39,16 @@ class RxVideoDecoder {
         }
 
         override fun onError(t: Throwable) {
+            Log.d(TAG, "onError($t)")
         }
 
-        override fun onNext(codecEvent: CodecEvent) {
+        override fun onNext(codecEvent: CodecEvent<ByteBuffer>) {
             when (codecEvent) {
                 is FormatCodecEvent -> {
-                    configureCoded(codecEvent.mediaFormat)
+                    onNextFormatCodecEvent(codecEvent.mediaFormat)
                 }
                 is DataCodecEvent -> {
-                    decodeRawBuffer(codecEvent.byteBuffer, codecEvent.bufferInfo)
+                    onNextDataCodecEvent(codecEvent.data, codecEvent.bufferInfo)
                 }
             }
             subscription.request(1)
@@ -66,7 +69,7 @@ class RxVideoDecoder {
 
     }
 
-    private fun configureCoded(format: MediaFormat) {
+    private fun onNextFormatCodecEvent(format: MediaFormat) {
         Log.d(TAG, "Video size is " + format.getInteger(MediaFormat.KEY_WIDTH) + "x" +
                 format.getInteger(MediaFormat.KEY_HEIGHT))
 
@@ -78,7 +81,7 @@ class RxVideoDecoder {
         formatSubject.onNext(format)
     }
 
-    private fun decodeRawBuffer(buffer: ByteBuffer, bufferInfo: MediaCodec.BufferInfo) {
+    private fun onNextDataCodecEvent(buffer: ByteBuffer, bufferInfo: MediaCodec.BufferInfo) {
         val mediaCodec = codecSubject.blockingFirst()
         loop@ while (buffer.hasRemaining()) {
             val inputBufferIndex = mediaCodec.dequeueInputBuffer(TIMEOUT_USEC)
@@ -93,7 +96,7 @@ class RxVideoDecoder {
         }
     }
 
-    fun output() = Flowable.create<Bitmap>({ emitter ->
+    fun output() = Flowable.create<CodecEvent<Bitmap>>({ emitter ->
         val format = formatSubject
                 .subscribeOn(Schedulers.io())
                 .blockingFirst()
@@ -106,54 +109,54 @@ class RxVideoDecoder {
 
         Log.d(TAG, "loop")
         loop@ while (!emitter.isCancelled) {
-//            emitter.waitForRequested()
+            emitter.waitForRequested()
 
             val info = MediaCodec.BufferInfo()
-            val decoderStatus = mediaCodec.dequeueOutputBuffer(info, TIMEOUT_USEC.toLong())
-            if (decoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                // no output available yet
-                Log.d(TAG, "no output from mediaCodec available")
-            } else if (decoderStatus == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                // not important for s, since we're using Surface
-                Log.d(TAG, "mediaCodec output buffers changed")
-            } else if (decoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                val newFormat = mediaCodec.outputFormat
-                Log.d(TAG, "mediaCodec output format changed: " + newFormat)
-            } else if (decoderStatus < 0) {
-                fail("unexpected result from mediaCodec.dequeueOutputBuffer: " + decoderStatus)
-            } else { // decoderStatus >= 0
-                Log.d(TAG, "surface mediaCodec given buffer " + decoderStatus +
-                        " (size=" + info.size + ")")
-                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
-                    Log.d(TAG, "output EOS")
-                    emitter.onComplete()
-                    break@loop
+            val decoderStatus = mediaCodec.dequeueOutputBuffer(info, TIMEOUT_USEC)
+
+            @SuppressLint("SwitchIntDef")
+            when (decoderStatus) {
+                MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                    Log.v(TAG, "INFO_TRY_AGAIN_LATER")
                 }
+                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    val newFormat = mediaCodec.outputFormat
+                    Log.v(TAG, "INFO_OUTPUT_FORMAT_CHANGED: $newFormat")
+                    emitter.onNext(FormatCodecEvent(newFormat))
+                }
+                in 0..Int.MAX_VALUE -> {
+                    Log.d(TAG, "surface mediaCodec given buffer $decoderStatus (size=${info.size})")
+                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                        Log.d(TAG, "output EOS")
+                        emitter.onComplete()
+                        break@loop
+                    }
 
-                val doRender = info.size != 0
+                    val doRender = info.size != 0
 
-                // As soon as we call releaseOutputBuffer, the buffer will be forwarded
-                // to SurfaceTexture to convert to a texture.  The API doesn't guarantee
-                // that the texture will be available before the call returns, so we
-                // need to wait for the onFrameAvailable callback to fire.
-                mediaCodec.releaseOutputBuffer(decoderStatus, doRender)
-                if (doRender) {
-                    this.decodeCount++
-                    val expectedPresentationTimeUs =
-                            Log.d(TAG, "awaiting decode of frame $decodeCount, time ${info.presentationTimeUs}")
-                    outputSurface.awaitNewImage()
-                    Log.d(TAG, "awaited")
-                    outputSurface.drawImage(true)
+                    // As soon as we call releaseOutputBuffer, the buffer will be forwarded
+                    // to SurfaceTexture to convert to a texture.  The API doesn't guarantee
+                    // that the texture will be available before the call returns, so we
+                    // need to wait for the onFrameAvailable callback to fire.
+                    mediaCodec.releaseOutputBuffer(decoderStatus, doRender)
+                    if (doRender) {
+                        this.decodeCount++
+                        val expectedPresentationTimeUs =
+                                Log.d(TAG, "awaiting decode of frame $decodeCount, time ${info.presentationTimeUs}")
+                        outputSurface.awaitNewImage()
+                        Log.d(TAG, "awaited")
+                        outputSurface.drawImage(true)
 
-                    if (decodeCount < MAX_FRAMES) {
-                        val frame = outputSurface.frameBitmap
-                        var emittedFrame = frame
-                        if (rotationDegrees != 0) {
-                            val matrix = Matrix()
-                            matrix.setRotate(rotationDegrees.toFloat())
-                            emittedFrame = Bitmap.createBitmap(frame, 0, 0, frame.width, frame.height, matrix, false)
+                        if (decodeCount < MAX_FRAMES) {
+                            val frame = outputSurface.frameBitmap
+                            var emittedFrame = frame
+                            if (rotationDegrees != 0) {
+                                val matrix = Matrix()
+                                matrix.setRotate(rotationDegrees.toFloat())
+                                emittedFrame = Bitmap.createBitmap(frame, 0, 0, frame.width, frame.height, matrix, false)
+                            }
+                            emitter.onNext(DataCodecEvent(emittedFrame, info))
                         }
-                        emitter.onNext(emittedFrame)
                     }
                 }
             }

@@ -4,5 +4,5 @@ import android.graphics.Bitmap
 import org.reactivestreams.Subscriber
 
 interface IRxVideoCodec : IRxCodec {
-    fun input(): Subscriber<Bitmap>
+    fun input(): Subscriber<CodecEvent<Bitmap>>
 }

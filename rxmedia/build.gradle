@@ -26,7 +26,7 @@ publish {
     groupId = 'com.featzima'
     repoName = 'rxmedia'
     artifactId = 'rxmedia'
-    publishVersion = '0.1.0'
+    publishVersion = '0.1.1'
     desc = 'Reactive support for Android media tools'
     website = 'https://github.com/featzima/rxmedia'
 }

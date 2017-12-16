@@ -86,7 +86,7 @@ class RxEncodeCodec(
             }
         }
 
-    val output = Flowable.create<CodecEvent>({ emitter ->
+    val output = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
             val codec = this@RxEncodeCodec.codecSubject.blockingFirst()
             while (!emitter.isCancelled) {
 //                Log.e("RxPcmProcessor $TAG", "${emitter.requested()}")
@@ -108,7 +108,7 @@ class RxEncodeCodec(
                         Log.i(TAG, "output::presentationTimeUs = ${info.presentationTimeUs}")
                         val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
                         emitter.onNext(DataCodecEvent(
-                                byteBuffer = outputBuffer.exactlyCopy(),
+                                data = outputBuffer.exactlyCopy(),
                                 bufferInfo = info))
                         codec.releaseOutputBuffer(outputBufferIndex, false)
                     }

@@ -26,7 +26,7 @@ class RxVideoMediaExtractor(
         setDataSource(path)
     }, trackSelector)
 
-    val output: Publisher<CodecEvent> = Flowable.create<CodecEvent>({ emitter ->
+    val output: Publisher<CodecEvent<ByteBuffer>> = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
         try {
             val trackId = this.trackSelector.selectTrackId(this.mediaExtractor)
             this.mediaExtractor.selectTrack(trackId)

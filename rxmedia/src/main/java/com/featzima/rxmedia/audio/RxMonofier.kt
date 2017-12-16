@@ -9,7 +9,7 @@ import java.nio.ByteBuffer
 class RxMonofier {
     private var isStereo: Boolean = false
 
-    val composer = FlowableTransformer<CodecEvent, CodecEvent> { upstream ->
+    val composer = FlowableTransformer<CodecEvent<ByteBuffer>, CodecEvent<ByteBuffer>> { upstream ->
         upstream
                 .map {
                     when (it) {
@@ -20,7 +20,7 @@ class RxMonofier {
                         is DataCodecEvent -> {
                             if (isStereo) {
                                 DataCodecEvent(
-                                        byteBuffer = this.stereoBufferToMono(it.byteBuffer),
+                                        data = this.stereoBufferToMono(it.data),
                                         bufferInfo = it.bufferInfo)
                             } else {
                                 it
