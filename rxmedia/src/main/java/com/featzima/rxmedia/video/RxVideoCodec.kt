@@ -11,6 +11,7 @@ import android.media.MediaFormat
 import android.media.MediaFormat.*
 import android.util.Log
 import android.view.Surface
+import com.featzima.rxmedia.extensions.waitForRequested
 import com.featzima.rxmedia.i.CodecEvent
 import com.featzima.rxmedia.i.DataCodecEvent
 import com.featzima.rxmedia.i.FormatCodecEvent
@@ -36,12 +37,10 @@ class RxVideoCodec(
 
     override fun input(): Subscriber<CodecEvent<Bitmap>> = object : Subscriber<CodecEvent<Bitmap>> {
         override fun onComplete() {
-            Log.d(TAG, "onComplete()")
             isInputCompleted = true
         }
 
         override fun onSubscribe(s: Subscription) {
-            Log.d(TAG, "onSubscribe($s)")
         }
 
         override fun onNext(codecEvent: CodecEvent<Bitmap>) {
@@ -86,24 +85,21 @@ class RxVideoCodec(
         }
 
         override fun onError(t: Throwable) {
-            Log.d(TAG, "onError($t)")
+            Log.e(TAG, "onError($t)")
             codecSubject.onError(t)
         }
     }
 
     override fun output(): Publisher<CodecEvent<ByteBuffer>> = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
-        Log.d(TAG, "emitter ${emitter}")
-        val codec = this.codecSubject.blockingFirst()
         while (!emitter.isCancelled && !isInputCompleted) {
+            val codec = this.codecSubject.blockingFirst()
+            emitter.waitForRequested()
+
             val info = MediaCodec.BufferInfo()
             val outputBufferIndex = codec.dequeueOutputBuffer(info, TIMEOUT_USEC)
-//            Log.d(TAG, "outputBufferIndex = $outputBufferIndex")
 
             @SuppressLint("SwitchIntDef")
             when (outputBufferIndex) {
-                MediaCodec.INFO_TRY_AGAIN_LATER -> {
-//                    Log.d(TAG, "INFO_TRY_AGAIN_LATER")
-                }
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     Log.d(TAG, "INFO_OUTPUT_FORMAT_CHANGED")
                     emitter.onNext(FormatCodecEvent(mediaFormat = codec.outputFormat))
@@ -120,7 +116,6 @@ class RxVideoCodec(
 
                     if (info.size != 0) {
                         info.presentationTimeUs = computePresentationTime(nbEncoded, frameRate)
-                        Log.e(TAG, "presentationTime = ${info.presentationTimeUs}")
                         emitter.onNext(DataCodecEvent(
                                 data = encodedData,
                                 bufferInfo = info))
@@ -131,9 +126,10 @@ class RxVideoCodec(
                 }
             }
         }
-        Log.d(TAG, "emitter.onComplete()")
-        codec.stop()
-        codec.release()
+        this.codecSubject.value?.apply {
+            stop()
+            release()
+        }
         emitter.onComplete()
     }, BackpressureStrategy.BUFFER)
 
