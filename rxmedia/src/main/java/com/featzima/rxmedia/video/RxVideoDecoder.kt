@@ -108,17 +108,13 @@ class RxVideoDecoder {
         this.codecSubject.onNext(mediaCodec)
 
         Log.d(TAG, "loop")
-        loop@ while (!emitter.isCancelled) {
-            emitter.waitForRequested()
+        loop@ while (emitter.waitForRequested()) {
 
             val info = MediaCodec.BufferInfo()
             val decoderStatus = mediaCodec.dequeueOutputBuffer(info, TIMEOUT_USEC)
 
             @SuppressLint("SwitchIntDef")
             when (decoderStatus) {
-                MediaCodec.INFO_TRY_AGAIN_LATER -> {
-                    Log.v(TAG, "INFO_TRY_AGAIN_LATER")
-                }
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     val newFormat = mediaCodec.outputFormat
                     Log.v(TAG, "INFO_OUTPUT_FORMAT_CHANGED: $newFormat")

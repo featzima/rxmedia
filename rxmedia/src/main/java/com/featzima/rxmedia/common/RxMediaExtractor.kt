@@ -3,7 +3,6 @@ package com.featzima.rxmedia.common
 import android.content.res.AssetFileDescriptor
 import android.media.MediaCodec
 import android.media.MediaExtractor
-import android.util.Log
 import com.featzima.rxmedia.extensions.waitForRequested
 import com.featzima.rxmedia.i.CodecEvent
 import com.featzima.rxmedia.i.DataCodecEvent
@@ -23,36 +22,30 @@ class RxMediaExtractor(
     }, trackSelector)
 
     constructor(path: String, trackSelector: ITrackSelector) : this(MediaExtractor().apply {
-        Log.e("!!!", path)
         setDataSource(path)
     }, trackSelector)
 
     val output: Publisher<CodecEvent<ByteBuffer>> = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
-        try {
-            val trackId = this.trackSelector.selectTrackId(this.mediaExtractor)
-            this.mediaExtractor.selectTrack(trackId)
-            var configured = false
-            loop@ while (!emitter.isCancelled) {
-                emitter.waitForRequested()
-                if (!configured) {
-                    val mediaFormat = this.mediaExtractor.getTrackFormat(trackId)
-                    emitter.onNext(FormatCodecEvent(mediaFormat))
-                    configured = true
-                } else {
-                    val buffer = ByteBuffer.allocate(this.bufferSize)
-                    if (this.mediaExtractor.readSampleData(buffer, 0) > 0) {
-                        val info = MediaCodec.BufferInfo()
-                        info.presentationTimeUs = this.mediaExtractor.sampleTime
-                        emitter.onNext(DataCodecEvent(buffer, info))
-                        this.mediaExtractor.advance()
-                    } else {
-                        break@loop
+        var configured = false
+        loop@ while (emitter.waitForRequested()) {
+            if (!configured) {
+                val trackId = this.trackSelector.selectTrackId(this.mediaExtractor)
+                this.mediaExtractor.selectTrack(trackId)
+                val mediaFormat = this.mediaExtractor.getTrackFormat(trackId)
+                emitter.onNext(FormatCodecEvent(mediaFormat))
+                configured = true
+            } else {
+                val buffer = ByteBuffer.allocate(this.bufferSize)
+                if (this.mediaExtractor.readSampleData(buffer, 0) > 0) {
+                    val info = MediaCodec.BufferInfo().apply {
+                        presentationTimeUs = mediaExtractor.sampleTime
+                        flags = mediaExtractor.sampleFlags
                     }
-                }
+                    this.mediaExtractor.advance()
+                    emitter.onNext(DataCodecEvent(buffer, info))
+                } else break@loop
             }
-            emitter.onComplete()
-        } catch (e: Exception) {
-            Log.e("e", e.message, e)
         }
-    }, BackpressureStrategy.BUFFER)
+        emitter.onComplete()
+    }, BackpressureStrategy.MISSING)
 }
