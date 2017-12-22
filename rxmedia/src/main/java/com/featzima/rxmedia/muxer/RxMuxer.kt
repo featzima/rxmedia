@@ -78,21 +78,22 @@ class RxMuxer(
         override fun onNext(event: CodecEvent<ByteBuffer>) {
             when (event) {
                 is FormatCodecEvent -> {
+                    Log.e(TAG, "FormatCodecEvent")
                     synchronized(this@RxMuxer) {
                         this.trackIndex = muxer.addTrack(event.mediaFormat)
                         this@RxMuxer.startMuxer()
                     }
                 }
                 is DataCodecEvent -> {
-                    Log.d(TAG, "onNext.startonNext.start($codec, $event, ${event.bufferInfo.presentationTimeUs})")
+                    Log.d(TAG, "onNext.start($codec, $event, ${event.bufferInfo.presentationTimeUs})")
                     try {
                         synchronized(this@RxMuxer) {
                             muxer.writeSampleData(this.trackIndex, event.data, event.bufferInfo)
                         }
-                        this.subscription.request(1)
                     } catch (e: Throwable) {
-                        e.printStackTrace()
+                        Log.e(TAG, "onNext()", e)
                     }
+                    this.subscription.request(1)
                 }
             }
 //            Log.d(TAG, "onNext.end($codec, $event)")

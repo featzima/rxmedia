@@ -15,7 +15,7 @@ import java.nio.ByteBuffer
 class RxMediaExtractor(
         val mediaExtractor: MediaExtractor,
         val trackSelector: ITrackSelector,
-        val bufferSize: Int = 80000) {
+        val bufferSize: Int = 800000) {
 
     constructor(assetFd: AssetFileDescriptor, trackSelector: ITrackSelector) : this(MediaExtractor().apply {
         setDataSource(assetFd.fileDescriptor, assetFd.startOffset, assetFd.length)

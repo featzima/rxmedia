@@ -39,7 +39,7 @@ class RxVideoDecoder {
         }
 
         override fun onError(t: Throwable) {
-            Log.d(TAG, "onError($t)")
+            Log.e(TAG, "onError($t)")
         }
 
         override fun onNext(codecEvent: CodecEvent<ByteBuffer>) {

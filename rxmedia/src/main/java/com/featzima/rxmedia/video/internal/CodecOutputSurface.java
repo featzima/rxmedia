@@ -6,6 +6,7 @@ import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.util.Log;
@@ -206,6 +207,7 @@ public class CodecOutputSurface implements SurfaceTexture.OnFrameAvailableListen
         }
 
         // Latch the data.
+        makeCurrent();
         mTextureRender.checkGlError("before updateTexImage");
         mSurfaceTexture.updateTexImage();
     }
