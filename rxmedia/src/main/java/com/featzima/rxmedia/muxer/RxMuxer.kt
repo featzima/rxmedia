@@ -57,9 +57,6 @@ class RxMuxer(
         }
     }
 
-    private var videoTimestamp = 0L
-    private var audioTimestamp = 0L
-
     inner class CodecSubscriber(
             private val codec: IRxCodec) : FlowableSubscriber<CodecEvent<ByteBuffer>> {
 
@@ -75,13 +72,17 @@ class RxMuxer(
             this@RxMuxer.stopMuxer()
         }
 
+        private var formatted = false
         override fun onNext(event: CodecEvent<ByteBuffer>) {
             when (event) {
                 is FormatCodecEvent -> {
-                    Log.e(TAG, "FormatCodecEvent")
-                    synchronized(this@RxMuxer) {
-                        this.trackIndex = muxer.addTrack(event.mediaFormat)
-                        this@RxMuxer.startMuxer()
+                    if (!formatted) {
+                        Log.e(TAG, "FormatCodecEvent")
+                        synchronized(this@RxMuxer) {
+                            this.trackIndex = muxer.addTrack(event.mediaFormat)
+                            this@RxMuxer.startMuxer()
+                        }
+                        formatted = true
                     }
                 }
                 is DataCodecEvent -> {
@@ -93,10 +94,9 @@ class RxMuxer(
                     } catch (e: Throwable) {
                         Log.e(TAG, "onNext()", e)
                     }
-                    this.subscription.request(1)
                 }
             }
-//            Log.d(TAG, "onNext.end($codec, $event)")
+            this.subscription.request(1)
         }
 
         override fun onSubscribe(subscription: Subscription) {
