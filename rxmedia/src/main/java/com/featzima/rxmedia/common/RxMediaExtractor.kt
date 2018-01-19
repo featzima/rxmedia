@@ -15,15 +15,22 @@ import java.nio.ByteBuffer
 class RxMediaExtractor(
         val mediaExtractor: MediaExtractor,
         val trackSelector: ITrackSelector,
+        val seekTo: Long = 0,
         val bufferSize: Int = 800000) {
 
-    constructor(assetFd: AssetFileDescriptor, trackSelector: ITrackSelector) : this(MediaExtractor().apply {
+    constructor(
+            assetFd: AssetFileDescriptor,
+            trackSelector: ITrackSelector,
+            seekTo: Long = 0) : this(MediaExtractor().apply {
         setDataSource(assetFd.fileDescriptor, assetFd.startOffset, assetFd.length)
-    }, trackSelector)
+    }, trackSelector, seekTo)
 
-    constructor(path: String, trackSelector: ITrackSelector) : this(MediaExtractor().apply {
+    constructor(
+            path: String,
+            trackSelector: ITrackSelector,
+            seekTo: Long = 0) : this(MediaExtractor().apply {
         setDataSource(path)
-    }, trackSelector)
+    }, trackSelector, seekTo)
 
     val output: Publisher<CodecEvent<ByteBuffer>> = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
         var configured = false
@@ -31,6 +38,7 @@ class RxMediaExtractor(
             if (!configured) {
                 val trackId = this.trackSelector.selectTrackId(this.mediaExtractor)
                 this.mediaExtractor.selectTrack(trackId)
+                this.mediaExtractor.seekTo(this.seekTo, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
                 val mediaFormat = this.mediaExtractor.getTrackFormat(trackId)
                 emitter.onNext(FormatCodecEvent(mediaFormat))
                 configured = true
