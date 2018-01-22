@@ -90,13 +90,14 @@ class RxMuxer(
                     try {
                         synchronized(this@RxMuxer) {
                             muxer.writeSampleData(this.trackIndex, event.data, event.bufferInfo)
+                            event.data
                         }
                     } catch (e: Throwable) {
                         Log.e(TAG, "onNext()", e)
                     }
+                    this.subscription.request(1)
                 }
             }
-            this.subscription.request(1)
         }
 
         override fun onSubscribe(subscription: Subscription) {
