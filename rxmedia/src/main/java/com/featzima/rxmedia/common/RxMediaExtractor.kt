@@ -21,16 +21,14 @@ class RxMediaExtractor(
     constructor(
             assetFd: AssetFileDescriptor,
             trackSelector: ITrackSelector,
-            seekTo: Long = 0) : this(MediaExtractor().apply {
-        setDataSource(assetFd.fileDescriptor, assetFd.startOffset, assetFd.length)
-    }, trackSelector, seekTo)
+            seekTo: Long = 0,
+            bufferSize: Int = 800000) : this(MediaExtractor().apply { setDataSource(assetFd.fileDescriptor, assetFd.startOffset, assetFd.length) }, trackSelector, seekTo, bufferSize)
 
     constructor(
             path: String,
             trackSelector: ITrackSelector,
-            seekTo: Long = 0) : this(MediaExtractor().apply {
-        setDataSource(path)
-    }, trackSelector, seekTo)
+            seekTo: Long = 0,
+            bufferSize: Int = 800000) : this(MediaExtractor().apply { setDataSource(path) }, trackSelector, seekTo, bufferSize)
 
     val output: Publisher<CodecEvent<ByteBuffer>> = Flowable.create<CodecEvent<ByteBuffer>>({ emitter ->
         var configured = false
