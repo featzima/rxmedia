@@ -9,6 +9,7 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 import android.util.Log;
 import android.view.Surface;
 
@@ -18,6 +19,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.IntBuffer;
 
 public class CodecOutputSurface implements SurfaceTexture.OnFrameAvailableListener {
     private static final String TAG = STextureRender.class.getSimpleName();
@@ -290,6 +292,16 @@ public class CodecOutputSurface implements SurfaceTexture.OnFrameAvailableListen
     }
 
     public Bitmap getFrameBitmap() {
+//        int mPboSize = mWidth * mHeight * 4;
+//        IntBuffer mPboIds = IntBuffer.allocate(2);
+//        GLES30.glGenBuffers(2, mPboIds);
+//
+//        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, mPboIds.get(0));
+//        GLES30.glBufferData(GLES30.GL_PIXEL_PACK_BUFFER, mPboSize, null,GLES30.GL_STATIC_READ);
+//
+//        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, mPboIds.get(1));
+//        GLES30.glBufferData(GLES30.GL_PIXEL_PACK_BUFFER, mPboSize, null,GLES30.GL_STATIC_READ);
+
         mPixelBuf.rewind();
         GLES20.glReadPixels(0, 0, mWidth, mHeight, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE,
                 mPixelBuf);

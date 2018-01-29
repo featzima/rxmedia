@@ -1,10 +1,12 @@
 package com.featzima.rxmedia.video
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Matrix
+import android.media.Image
 import android.media.MediaCodec
 import android.media.MediaFormat
+import android.renderscript.RenderScript
 import android.util.Log
 import com.featzima.rxmedia.extensions.transferToAsMuchAsPossible
 import com.featzima.rxmedia.extensions.waitForRequested
@@ -16,12 +18,12 @@ import io.reactivex.BackpressureStrategy
 import io.reactivex.Flowable
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.BehaviorSubject
-import junit.framework.Assert.fail
 import org.reactivestreams.Subscriber
 import org.reactivestreams.Subscription
 import java.nio.ByteBuffer
 
-class RxVideoDecoder {
+
+class RxVideoDecoder(context: Context) {
 
     private lateinit var outputSurface: CodecOutputSurface
     private val TIMEOUT_USEC = 10000L
@@ -29,6 +31,7 @@ class RxVideoDecoder {
     private var rotationDegrees = 0
     private val codecSubject = BehaviorSubject.create<MediaCodec>()
     private val formatSubject = BehaviorSubject.create<MediaFormat>()
+    private val renderScript = RenderScript.create(context)
 
     val input: Subscriber<CodecEvent<ByteBuffer>> = object : Subscriber<CodecEvent<ByteBuffer>> {
         lateinit var subscription: Subscription
@@ -103,7 +106,7 @@ class RxVideoDecoder {
         outputSurface = CodecOutputSurface(format.getInteger("width"), format.getInteger("height"))
         val mime = format.getString(MediaFormat.KEY_MIME)
         val mediaCodec = MediaCodec.createDecoderByType(mime)
-        mediaCodec.configure(format, this.outputSurface.surface, null, 0)
+        mediaCodec.configure(format, null, null, 0)
         mediaCodec.start()
         this.codecSubject.onNext(mediaCodec)
 
@@ -128,37 +131,21 @@ class RxVideoDecoder {
                         break@loop
                     }
 
-                    val doRender = info.size != 0
-
-                    // As soon as we call releaseOutputBuffer, the buffer will be forwarded
-                    // to SurfaceTexture to convert to a texture.  The API doesn't guarantee
-                    // that the texture will be available before the call returns, so we
-                    // need to wait for the onFrameAvailable callback to fire.
-                    mediaCodec.releaseOutputBuffer(decoderStatus, doRender)
-                    if (doRender) {
-                        this.decodeCount++
-                        val expectedPresentationTimeUs =
-                                Log.d(TAG, "awaiting decode of frame $decodeCount, time ${info.presentationTimeUs}")
-                        outputSurface.awaitNewImage()
-                        Log.d(TAG, "awaited")
-                        outputSurface.drawImage(true)
-
-                        if (decodeCount < MAX_FRAMES) {
-                            val frame = outputSurface.frameBitmap
-                            var emittedFrame = frame
-                            if (rotationDegrees != 0) {
-                                val matrix = Matrix()
-                                matrix.setRotate(rotationDegrees.toFloat())
-                                emittedFrame = Bitmap.createBitmap(frame, 0, 0, frame.width, frame.height, matrix, false)
-                            }
-                            emitter.onNext(DataCodecEvent(emittedFrame, info))
-                        }
+                    try {
+                        val image: Image = mediaCodec.getOutputImage(decoderStatus)
+                        val bitmap: Bitmap = RenderScriptUtils.YUV_420_888_toRGB(renderScript, image, image.width, image.height)
+                        mediaCodec.releaseOutputBuffer(decoderStatus, true)
+                        emitter.onNext(DataCodecEvent(bitmap, info))
+                        image.close()
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "!!!", e)
                     }
                 }
             }
         }
         release()
     }, BackpressureStrategy.BUFFER)
+
 
     private fun release() {
         val mediaCodec = codecSubject.blockingFirst()
@@ -168,8 +155,6 @@ class RxVideoDecoder {
 
     companion object {
         private val TAG = RxVideoDecoder::class.java.simpleName
-        private val MAX_FRAMES = 100000       // stop extracting after this many
     }
-
 
 }
