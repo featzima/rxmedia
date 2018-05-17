@@ -3,7 +3,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'com.novoda.bintray-release'
 
 android {
-    buildToolsVersion '27.0.1'
+    buildToolsVersion '27.0.3'
     compileSdkVersion 27
     defaultConfig {
         minSdkVersion 21
@@ -36,6 +36,6 @@ tasks.withType(Javadoc).all {
 }
 
 dependencies {
-    compile "io.reactivex.rxjava2:rxjava:2.1.7"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "io.reactivex.rxjava2:rxjava:2.1.12"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
 }

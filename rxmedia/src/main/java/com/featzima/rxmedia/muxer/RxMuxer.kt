@@ -93,11 +93,11 @@ class RxMuxer(
                             event.data
                         }
                     } catch (e: Throwable) {
-                        Log.e(TAG, "onNext()", e)
+                        Log.e(TAG, "onNext($e)")
                     }
+                    this.subscription.request(1)
                 }
             }
-            this.subscription.request(1)
         }
 
         override fun onSubscribe(subscription: Subscription) {
