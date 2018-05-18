@@ -107,6 +107,11 @@ class RxEncodeCodec(
                     in 0..Int.MAX_VALUE -> {
                         Log.i(TAG, "output::presentationTimeUs = ${info.presentationTimeUs}")
                         val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
+
+                        if (info.flags.isFlagSet(MediaCodec.BUFFER_FLAG_CODEC_CONFIG)) {
+                            info.size = 0
+                        }
+
                         emitter.onNext(DataCodecEvent(
                                 data = outputBuffer.exactlyCopy(),
                                 bufferInfo = info))
